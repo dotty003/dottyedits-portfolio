@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import { v4 as uuidv4 } from 'uuid';
+import { put, list } from '@vercel/blob';
+
+const PROJECTS_BLOB_KEY = 'projects.json';
 
 interface Project {
     id: string;
@@ -9,13 +9,20 @@ interface Project {
     category: string;
     year: string;
     thumbnailUrl: string;
-    driveVideoId: string;
+    videoId?: string;
+    videoSource?: 'youtube' | 'drive' | null;
+    driveVideoId?: string;
 }
 
 interface ProjectsData {
     longForm: Project[];
     shortForm: Project[];
 }
+
+const defaultProjects: ProjectsData = {
+    longForm: [],
+    shortForm: []
+};
 
 function validateAuth(req: VercelRequest): boolean {
     const authHeader = req.headers.authorization;
@@ -26,20 +33,90 @@ function validateAuth(req: VercelRequest): boolean {
     return password === process.env.ADMIN_PASSWORD;
 }
 
-function getDataPath(): string {
-    return join(process.cwd(), 'data', 'projects.json');
+async function getProjectsUrl(): Promise<string | null> {
+    try {
+        const { blobs } = await list({ prefix: PROJECTS_BLOB_KEY });
+        if (blobs.length > 0) return blobs[0].url;
+        return null;
+    } catch {
+        return null;
+    }
 }
 
-function readProjects(): ProjectsData {
-    const data = readFileSync(getDataPath(), 'utf-8');
-    return JSON.parse(data);
+async function readProjects(): Promise<ProjectsData> {
+    try {
+        const url = await getProjectsUrl();
+        if (!url) return defaultProjects;
+        const response = await fetch(url);
+        if (!response.ok) return defaultProjects;
+        return await response.json();
+    } catch {
+        return defaultProjects;
+    }
 }
 
-function writeProjects(data: ProjectsData): void {
-    writeFileSync(getDataPath(), JSON.stringify(data, null, 2));
+async function writeProjects(data: ProjectsData): Promise<void> {
+    await put(PROJECTS_BLOB_KEY, JSON.stringify(data), {
+        access: 'public',
+        addRandomSuffix: false
+    });
 }
 
-export default function handler(req: VercelRequest, res: VercelResponse) {
+function generateId(prefix: string): string {
+    return `${prefix}-${Date.now().toString(36)}`;
+}
+
+// Video parsing helpers
+function detectVideoSource(link: string): 'youtube' | 'drive' | null {
+    if (!link) return null;
+    if (link.includes('youtube.com') || link.includes('youtu.be')) return 'youtube';
+    if (link.includes('drive.google.com')) return 'drive';
+    return null;
+}
+
+function extractYoutubeVideoId(link: string): string {
+    if (!link) return "";
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+        /^([a-zA-Z0-9_-]{11})$/
+    ];
+    for (const pattern of patterns) {
+        const match = link.match(pattern);
+        if (match) return match[1];
+    }
+    return "";
+}
+
+function extractDriveVideoId(link: string): string {
+    if (!link) return "";
+    if (!link.includes("/") && !link.includes("?")) return link;
+    const patterns = [
+        /\/file\/d\/([a-zA-Z0-9_-]+)/,
+        /id=([a-zA-Z0-9_-]+)/,
+        /\/d\/([a-zA-Z0-9_-]+)/
+    ];
+    for (const pattern of patterns) {
+        const match = link.match(pattern);
+        if (match) return match[1];
+    }
+    return link;
+}
+
+function getThumbnail(videoId: string, source: 'youtube' | 'drive' | null): string {
+    if (!videoId || !source) return "";
+    if (source === 'youtube') return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    return `https://drive.google.com/thumbnail?id=${videoId}&sz=w800`;
+}
+
+function parseVideoLink(link: string): { videoId: string; videoSource: 'youtube' | 'drive' | null } {
+    const source = detectVideoSource(link);
+    let videoId = "";
+    if (source === 'youtube') videoId = extractYoutubeVideoId(link);
+    else if (source === 'drive') videoId = extractDriveVideoId(link);
+    return { videoId, videoSource: source };
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!validateAuth(req)) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -49,69 +126,104 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     try {
         switch (method) {
             case 'GET': {
-                const projects = readProjects();
+                const projects = await readProjects();
                 return res.status(200).json(projects);
             }
 
             case 'POST': {
-                const { type, project } = req.body;
-                if (!type || !project || !['longForm', 'shortForm'].includes(type)) {
+                const { type, title, category, year, thumbnailUrl, videoLink } = req.body;
+                const linkToUse = videoLink || req.body.driveVideoLink || "";
+
+                if (!type || !title || !['longForm', 'shortForm'].includes(type)) {
                     return res.status(400).json({ error: 'Invalid request body' });
                 }
 
-                const projects = readProjects();
+                const projects = await readProjects();
+                const { videoId, videoSource } = parseVideoLink(linkToUse);
+                const finalThumbnail = thumbnailUrl || (videoId ? getThumbnail(videoId, videoSource) : "https://picsum.photos/800/450?grayscale");
+
                 const newProject: Project = {
-                    id: uuidv4(),
-                    title: project.title || '',
-                    category: project.category || '',
-                    year: project.year || new Date().getFullYear().toString(),
-                    thumbnailUrl: project.thumbnailUrl || '',
-                    driveVideoId: project.driveVideoId || '',
+                    id: generateId(type === 'longForm' ? 'lf' : 'sf'),
+                    title,
+                    category: category || 'Uncategorized',
+                    year: year || new Date().getFullYear().toString(),
+                    thumbnailUrl: finalThumbnail,
+                    videoId,
+                    videoSource,
+                    driveVideoId: videoSource === 'drive' ? videoId : undefined
                 };
 
                 projects[type as keyof ProjectsData].push(newProject);
-                writeProjects(projects);
+                await writeProjects(projects);
 
                 return res.status(201).json({ success: true, project: newProject });
             }
 
             case 'PUT': {
-                const { type, project } = req.body;
-                if (!type || !project?.id || !['longForm', 'shortForm'].includes(type)) {
-                    return res.status(400).json({ error: 'Invalid request body' });
+                const { id } = req.query;
+                const { title, category, year, thumbnailUrl, videoLink } = req.body;
+                const linkToUse = videoLink || req.body.driveVideoLink || "";
+
+                if (!id) {
+                    return res.status(400).json({ error: 'Project ID required' });
                 }
 
-                const projects = readProjects();
-                const list = projects[type as keyof ProjectsData];
-                const index = list.findIndex((p) => p.id === project.id);
+                const projects = await readProjects();
+                let found = false;
 
-                if (index === -1) {
+                for (const type of ['longForm', 'shortForm'] as const) {
+                    const index = projects[type].findIndex(p => p.id === id);
+                    if (index !== -1) {
+                        const { videoId, videoSource } = parseVideoLink(linkToUse);
+                        const existingVideoId = projects[type][index].videoId || projects[type][index].driveVideoId;
+                        const newThumbnail = thumbnailUrl || (videoId && videoId !== existingVideoId ? getThumbnail(videoId, videoSource) : projects[type][index].thumbnailUrl);
+
+                        projects[type][index] = {
+                            ...projects[type][index],
+                            title: title || projects[type][index].title,
+                            category: category || projects[type][index].category,
+                            year: year || projects[type][index].year,
+                            thumbnailUrl: newThumbnail,
+                            videoId,
+                            videoSource,
+                            driveVideoId: videoSource === 'drive' ? videoId : projects[type][index].driveVideoId
+                        };
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
                     return res.status(404).json({ error: 'Project not found' });
                 }
 
-                list[index] = { ...list[index], ...project };
-                writeProjects(projects);
-
-                return res.status(200).json({ success: true, project: list[index] });
+                await writeProjects(projects);
+                return res.status(200).json({ success: true });
             }
 
             case 'DELETE': {
-                const { type, id } = req.body;
-                if (!type || !id || !['longForm', 'shortForm'].includes(type)) {
-                    return res.status(400).json({ error: 'Invalid request body' });
+                const { id } = req.query;
+                if (!id) {
+                    return res.status(400).json({ error: 'Project ID required' });
                 }
 
-                const projects = readProjects();
-                const list = projects[type as keyof ProjectsData];
-                const index = list.findIndex((p) => p.id === id);
+                const projects = await readProjects();
+                let found = false;
 
-                if (index === -1) {
+                for (const type of ['longForm', 'shortForm'] as const) {
+                    const index = projects[type].findIndex(p => p.id === id);
+                    if (index !== -1) {
+                        projects[type].splice(index, 1);
+                        found = true;
+                        break;
+                    }
+                }
+
+                if (!found) {
                     return res.status(404).json({ error: 'Project not found' });
                 }
 
-                list.splice(index, 1);
-                writeProjects(projects);
-
+                await writeProjects(projects);
                 return res.status(200).json({ success: true });
             }
 
