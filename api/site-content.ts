@@ -91,16 +91,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
-            const { section, data } = req.body;
-            if (!section || !data) {
-                return res.status(400).json({ error: 'Section and data required' });
+            const updates = req.body;
+            if (!updates || typeof updates !== 'object' || Object.keys(updates).length === 0) {
+                return res.status(400).json({ error: 'No content updates provided' });
             }
 
             const content = await readContent();
-            content[section as keyof SiteContent] = data;
+
+            // Merge all provided sections into content
+            const validSections = ['hero', 'about', 'services', 'clients', 'contact', 'social'];
+            for (const [key, value] of Object.entries(updates)) {
+                if (validSections.includes(key)) {
+                    content[key as keyof SiteContent] = value as any;
+                }
+            }
+
             await writeContent(content);
 
-            return res.status(200).json({ success: true });
+            return res.status(200).json({ success: true, content });
         }
 
         return res.status(405).json({ error: 'Method not allowed' });
