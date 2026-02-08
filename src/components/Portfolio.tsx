@@ -74,8 +74,8 @@ export const Portfolio: React.FC = () => {
           src={project.thumbnailUrl}
           alt={project.title}
           className={`w-full h-full object-cover transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] ${hoveredId === project.id
-              ? 'scale-110 opacity-100 grayscale-0'
-              : 'scale-100 opacity-60 grayscale'
+            ? 'scale-110 opacity-100 grayscale-0'
+            : 'scale-100 opacity-60 grayscale'
             }`}
         />
 
@@ -101,8 +101,8 @@ export const Portfolio: React.FC = () => {
 
       <div className="absolute inset-0 p-6 flex flex-col justify-end pointer-events-none">
         <div className={`transform transition-all duration-500 ease-out ${hoveredId === project.id
-            ? 'translate-y-0 opacity-100'
-            : 'translate-y-8 opacity-0'
+          ? 'translate-y-0 opacity-100'
+          : 'translate-y-8 opacity-0'
           }`}>
           <div className="flex justify-between items-end border-t border-white/20 pt-4 backdrop-blur-sm">
             <div>
