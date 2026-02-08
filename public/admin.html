@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Dotty Edits</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #0a0a0a; }
+    .modal-backdrop { background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); }
+  </style>
+</head>
+<body class="min-h-screen text-neutral-200 font-sans">
+  <!-- Login Screen -->
+  <div id="login-screen" class="min-h-screen flex items-center justify-center">
+    <div class="bg-neutral-900 border border-neutral-800 p-8 rounded-lg w-full max-w-md">
+      <h1 class="text-2xl font-bold text-white mb-6 text-center">Admin Login</h1>
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="block text-sm text-neutral-400 mb-2">Password</label>
+          <input type="password" id="password-input" 
+            class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors"
+            placeholder="Enter admin password">
+        </div>
+        <button type="submit" 
+          class="w-full py-3 bg-white text-black font-bold rounded-lg hover:bg-neutral-200 transition-colors">
+          Login
+        </button>
+        <p id="login-error" class="text-red-500 text-sm text-center hidden">Invalid password</p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden">
+    <header class="border-b border-neutral-800 py-4 px-6">
+      <div class="flex justify-between items-center max-w-6xl mx-auto">
+        <h1 class="text-xl font-bold text-white">Dotty Edits Admin</h1>
+        <button id="logout-btn" class="text-neutral-400 hover:text-white transition-colors">Logout</button>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-6 py-8">
+      <!-- Long Form Section -->
+      <section class="mb-12">
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold text-white">Long Form Projects</h2>
+          <button onclick="openModal('longForm')" 
+            class="px-4 py-2 bg-white text-black font-medium rounded-lg hover:bg-neutral-200 transition-colors">
+            + Add Project
+          </button>
+        </div>
+        <div id="longForm-list" class="grid gap-4"></div>
+      </section>
+
+      <!-- Short Form Section -->
+      <section>
+        <div class="flex justify-between items-center mb-6">
+          <h2 class="text-2xl font-bold text-white">Short Form Projects</h2>
+          <button onclick="openModal('shortForm')" 
+            class="px-4 py-2 bg-white text-black font-medium rounded-lg hover:bg-neutral-200 transition-colors">
+            + Add Project
+          </button>
+        </div>
+        <div id="shortForm-list" class="grid gap-4"></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Edit/Create Modal -->
+  <div id="modal" class="hidden fixed inset-0 modal-backdrop z-50 flex items-center justify-center p-4">
+    <div class="bg-neutral-900 border border-neutral-800 rounded-lg w-full max-w-lg p-6">
+      <h3 id="modal-title" class="text-xl font-bold text-white mb-6">Add Project</h3>
+      <form id="project-form" class="space-y-4">
+        <input type="hidden" id="project-id">
+        <input type="hidden" id="project-type">
+        
+        <div>
+          <label class="block text-sm text-neutral-400 mb-2">Title</label>
+          <input type="text" id="project-title" required
+            class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors">
+        </div>
+        
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-neutral-400 mb-2">Category</label>
+            <input type="text" id="project-category" required
+              class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors">
+          </div>
+          <div>
+            <label class="block text-sm text-neutral-400 mb-2">Year</label>
+            <input type="text" id="project-year" required
+              class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors">
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-sm text-neutral-400 mb-2">Thumbnail URL</label>
+          <input type="url" id="project-thumbnail"
+            class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors"
+            placeholder="https://...">
+        </div>
+        
+        <div>
+          <label class="block text-sm text-neutral-400 mb-2">Google Drive Video Link</label>
+          <input type="url" id="project-drive-link"
+            class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors"
+            placeholder="https://drive.google.com/file/d/...">
+          <p class="text-xs text-neutral-500 mt-1">Paste the full Drive sharing link. Must be set to "Anyone with the link".</p>
+        </div>
+        
+        <div class="flex gap-3 pt-4">
+          <button type="button" onclick="closeModal()" 
+            class="flex-1 py-3 border border-neutral-700 text-neutral-300 font-medium rounded-lg hover:bg-neutral-800 transition-colors">
+            Cancel
+          </button>
+          <button type="submit" 
+            class="flex-1 py-3 bg-white text-black font-bold rounded-lg hover:bg-neutral-200 transition-colors">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    let authToken = '';
+    let projectsData = { longForm: [], shortForm: [] };
+
+    // Extract Drive file ID from various URL formats
+    function extractDriveId(url) {
+      if (!url) return '';
+      const patterns = [
+        /\/file\/d\/([a-zA-Z0-9_-]+)/,
+        /id=([a-zA-Z0-9_-]+)/,
+        /\/open\?id=([a-zA-Z0-9_-]+)/
+      ];
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match) return match[1];
+      }
+      return url; // Assume it's already an ID
+    }
+
+    // Login
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('password-input').value;
+      
+      try {
+        const res = await fetch('/api/admin/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        
+        if (res.ok) {
+          authToken = password;
+          sessionStorage.setItem('adminToken', password);
+          showDashboard();
+        } else {
+          document.getElementById('login-error').classList.remove('hidden');
+        }
+      } catch (err) {
+        console.error('Login error:', err);
+      }
+    });
+
+    // Logout
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      authToken = '';
+      sessionStorage.removeItem('adminToken');
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('dashboard').classList.add('hidden');
+    });
+
+    // Show dashboard
+    async function showDashboard() {
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('dashboard').classList.remove('hidden');
+      await loadProjects();
+    }
+
+    // Load projects
+    async function loadProjects() {
+      try {
+        const res = await fetch('/api/projects');
+        projectsData = await res.json();
+        renderProjects();
+      } catch (err) {
+        console.error('Load error:', err);
+      }
+    }
+
+    // Render project cards
+    function renderProjects() {
+      ['longForm', 'shortForm'].forEach(type => {
+        const container = document.getElementById(`${type}-list`);
+        const projects = projectsData[type] || [];
+        
+        container.innerHTML = projects.map(p => `
+          <div class="bg-neutral-900 border border-neutral-800 rounded-lg p-4 flex items-center gap-4">
+            <div class="w-24 h-16 bg-neutral-800 rounded overflow-hidden flex-shrink-0">
+              ${p.thumbnailUrl ? `<img src="${p.thumbnailUrl}" class="w-full h-full object-cover">` : ''}
+            </div>
+            <div class="flex-1 min-w-0">
+              <h4 class="text-white font-medium truncate">${p.title}</h4>
+              <p class="text-sm text-neutral-400">${p.category} — ${p.year}</p>
+              ${p.driveVideoId ? '<span class="text-xs text-green-500">✓ Video linked</span>' : '<span class="text-xs text-neutral-500">No video</span>'}
+            </div>
+            <div class="flex gap-2">
+              <button onclick="editProject('${type}', '${p.id}')" 
+                class="px-3 py-1 text-sm border border-neutral-700 rounded hover:bg-neutral-800 transition-colors">Edit</button>
+              <button onclick="deleteProject('${type}', '${p.id}')" 
+                class="px-3 py-1 text-sm border border-red-900 text-red-400 rounded hover:bg-red-900/20 transition-colors">Delete</button>
+            </div>
+          </div>
+        `).join('');
+      });
+    }
+
+    // Open modal
+    function openModal(type, project = null) {
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('modal-title').textContent = project ? 'Edit Project' : 'Add Project';
+      document.getElementById('project-type').value = type;
+      document.getElementById('project-id').value = project?.id || '';
+      document.getElementById('project-title').value = project?.title || '';
+      document.getElementById('project-category').value = project?.category || '';
+      document.getElementById('project-year').value = project?.year || new Date().getFullYear();
+      document.getElementById('project-thumbnail').value = project?.thumbnailUrl || '';
+      document.getElementById('project-drive-link').value = project?.driveVideoId ? 
+        `https://drive.google.com/file/d/${project.driveVideoId}/view` : '';
+    }
+
+    // Close modal
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('project-form').reset();
+    }
+
+    // Edit project
+    function editProject(type, id) {
+      const project = projectsData[type].find(p => p.id === id);
+      if (project) openModal(type, project);
+    }
+
+    // Delete project
+    async function deleteProject(type, id) {
+      if (!confirm('Are you sure you want to delete this project?')) return;
+      
+      try {
+        const res = await fetch('/api/admin/projects', {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ type, id })
+        });
+        
+        if (res.ok) {
+          await loadProjects();
+        } else {
+          alert('Failed to delete project');
+        }
+      } catch (err) {
+        console.error('Delete error:', err);
+      }
+    }
+
+    // Save project
+    document.getElementById('project-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const type = document.getElementById('project-type').value;
+      const id = document.getElementById('project-id').value;
+      const driveLink = document.getElementById('project-drive-link').value;
+      
+      const project = {
+        id: id || undefined,
+        title: document.getElementById('project-title').value,
+        category: document.getElementById('project-category').value,
+        year: document.getElementById('project-year').value,
+        thumbnailUrl: document.getElementById('project-thumbnail').value,
+        driveVideoId: extractDriveId(driveLink)
+      };
+      
+      try {
+        const res = await fetch('/api/admin/projects', {
+          method: id ? 'PUT' : 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify({ type, project })
+        });
+        
+        if (res.ok) {
+          closeModal();
+          await loadProjects();
+        } else {
+          alert('Failed to save project');
+        }
+      } catch (err) {
+        console.error('Save error:', err);
+      }
+    });
+
+    // Check for existing session
+    window.addEventListener('load', () => {
+      const savedToken = sessionStorage.getItem('adminToken');
+      if (savedToken) {
+        authToken = savedToken;
+        showDashboard();
+      }
+    });
+  </script>
+</body>
+</html>
