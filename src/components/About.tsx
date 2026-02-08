@@ -8,6 +8,7 @@ interface AboutContent {
   paragraphs: string[];
   tools: string[];
   yearsExperience: number;
+  photoUrl?: string;
 }
 
 const defaultAbout: AboutContent = {
@@ -18,7 +19,8 @@ const defaultAbout: AboutContent = {
     "Whether it's a music video, a gaming montage, or a commercial spot, I bring a unique \"glitch\" philosophy to every timeline: break the pattern to create the moment."
   ],
   tools: ["Premiere Pro", "After Effects", "DaVinci Resolve", "Cinema 4D"],
-  yearsExperience: 4
+  yearsExperience: 4,
+  photoUrl: "/DOTTY.jpeg"
 };
 
 export const About: React.FC = () => {
@@ -65,7 +67,7 @@ export const About: React.FC = () => {
             <div className="aspect-square bg-neutral-900 border border-neutral-800 relative overflow-hidden group">
               <div className="absolute inset-0 bg-dot-grid bg-grid-md opacity-20 z-20 pointer-events-none"></div>
               <img
-                src="/DOTTY.jpeg"
+                src={content.photoUrl || "/DOTTY.jpeg"}
                 alt="Dotty"
                 className="w-full h-full object-cover grayscale opacity-80 transition-all duration-700 ease-[cubic-bezier(0.25,1,0.5,1)] group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-105"
               />
