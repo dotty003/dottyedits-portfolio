@@ -116,13 +116,6 @@ export const Portfolio: React.FC = () => {
           }`}>
           {isVertical ? <Smartphone className="w-12 h-12 text-white/80 drop-shadow-lg" strokeWidth={1} /> : <PlayCircle className="w-16 h-16 text-white/80 drop-shadow-lg" strokeWidth={1} />}
         </div>
-
-        {/* Video indicator */}
-        {hasVideo(project) && (
-          <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-sm px-2 py-1 rounded text-xs text-white flex items-center gap-1">
-            {getVideoSource(project) === 'youtube' ? '▶ YouTube' : '▶ Video'}
-          </div>
-        )}
       </div>
 
       <div className="absolute inset-0 p-6 flex flex-col justify-end pointer-events-none">
