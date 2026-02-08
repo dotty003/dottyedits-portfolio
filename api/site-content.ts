@@ -71,7 +71,8 @@ async function readContent(): Promise<SiteContent> {
 async function writeContent(data: SiteContent): Promise<void> {
     await put(SITE_CONTENT_BLOB_KEY, JSON.stringify(data), {
         access: 'public',
-        addRandomSuffix: false
+        addRandomSuffix: false,
+        allowOverwrite: true
     });
 }
 

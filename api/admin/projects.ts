@@ -59,7 +59,8 @@ async function writeProjects(data: ProjectsData): Promise<void> {
     try {
         await put(PROJECTS_BLOB_KEY, JSON.stringify(data), {
             access: 'public',
-            addRandomSuffix: false
+            addRandomSuffix: false,
+            allowOverwrite: true
         });
     } catch (error: any) {
         console.error('Blob write error:', error);
