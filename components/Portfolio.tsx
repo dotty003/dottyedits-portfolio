@@ -3,6 +3,22 @@ import { SectionHeading } from './SectionHeading';
 import { Project } from '../types';
 import { ArrowUpRight, PlayCircle, Smartphone, X } from 'lucide-react';
 
+// Fallback data - embedded directly for production reliability
+const fallbackData = {
+  longForm: [
+    { id: "lf-001", title: "Neon Nights", category: "Music Video", year: "2024", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=1", driveVideoId: "" },
+    { id: "lf-002", title: "The Artisan", category: "Documentary", year: "2023", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=3", driveVideoId: "" },
+    { id: "lf-003", title: "Apex Performance", category: "Brand Film", year: "2024", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=4", driveVideoId: "" },
+    { id: "lf-004", title: "Echoes of Silence", category: "Short Film", year: "2022", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=5", driveVideoId: "" }
+  ],
+  shortForm: [
+    { id: "sf-001", title: "Urban Flow", category: "Social Ad", year: "2023", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=2", driveVideoId: "" },
+    { id: "sf-002", title: "Vogue X", category: "Fashion Reel", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=6", driveVideoId: "" },
+    { id: "sf-003", title: "Glitch Mode", category: "TikTok Edit", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=7", driveVideoId: "" },
+    { id: "sf-004", title: "Hype Drop", category: "Teaser", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=8", driveVideoId: "" }
+  ]
+};
+
 interface ProjectsData {
   longForm: Project[];
   shortForm: Project[];
@@ -10,19 +26,27 @@ interface ProjectsData {
 
 export const Portfolio: React.FC = () => {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [projects, setProjects] = useState<ProjectsData>({ longForm: [], shortForm: [] });
+  const [projects, setProjects] = useState<ProjectsData>(fallbackData);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
+    // Try to fetch from API, but use fallback data if it fails
     fetch('/api/projects')
-      .then(res => res.json())
+      .then(res => {
+        if (!res.ok) throw new Error('API not available');
+        return res.json();
+      })
       .then(data => {
-        setProjects(data);
+        // Validate that we got actual JSON data
+        if (data && data.longForm && data.shortForm) {
+          setProjects(data);
+        }
         setLoading(false);
       })
       .catch(err => {
-        console.error('Failed to load projects:', err);
+        console.warn('Using fallback data - API not available:', err.message);
+        // Already have fallback data set as initial state
         setLoading(false);
       });
   }, []);
@@ -93,16 +117,6 @@ export const Portfolio: React.FC = () => {
       </div>
     </div>
   );
-
-  if (loading) {
-    return (
-      <section id="work" className="py-24 bg-black border-t border-neutral-900 relative">
-        <div className="container mx-auto px-6 text-center">
-          <div className="text-neutral-500">Loading projects...</div>
-        </div>
-      </section>
-    );
-  }
 
   return (
     <>
