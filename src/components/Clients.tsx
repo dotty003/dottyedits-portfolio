@@ -1,22 +1,31 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { SectionHeading } from './SectionHeading';
 
-const clients = [
-  'VOGUE', 'RED BULL', 'SONY MUSIC', 'COMPLEX', 'HYPEBEAST', 'NIKE', 'ADIDAS', 'VICE'
-];
+const defaultClients = ['VOGUE', 'RED BULL', 'SONY MUSIC', 'COMPLEX', 'HYPEBEAST', 'NIKE', 'ADIDAS', 'VICE'];
 
 export const Clients: React.FC = () => {
+  const [clients, setClients] = useState<string[]>(defaultClients);
+
+  useEffect(() => {
+    fetch('/api/site-content')
+      .then(res => res.json())
+      .then(data => {
+        if (data.clients?.length) setClients(data.clients);
+      })
+      .catch(() => { });
+  }, []);
+
   return (
     <section id="clients" className="py-24 bg-black border-t border-neutral-900">
       <div className="container mx-auto px-6">
-        <SectionHeading 
-          title="Worked With" 
+        <SectionHeading
+          title="Worked With"
           centered
         />
-        
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-12">
           {clients.map((client, index) => (
-            <div 
+            <div
               key={index}
               className="h-32 border border-neutral-900 bg-neutral-950 flex items-center justify-center hover:bg-neutral-900 transition-all duration-300 group cursor-default"
             >
