@@ -39,6 +39,12 @@ function extractDriveVideoId(link: string): string {
     return link; // Return as-is if no pattern matches
 }
 
+// Generate Google Drive thumbnail URL from video ID
+function getDriveThumbnail(videoId: string): string {
+    if (!videoId) return "";
+    return `https://drive.google.com/thumbnail?id=${videoId}&sz=w800`;
+}
+
 export default async (req: Request, context: Context) => {
     // Check authentication
     if (!checkAuth(req)) {
@@ -76,13 +82,17 @@ export default async (req: Request, context: Context) => {
 
             let projects = await store.get("projects", { type: "json" }) || { longForm: [], shortForm: [] };
 
+            const driveVideoId = extractDriveVideoId(driveVideoLink || "");
+            // Auto-generate thumbnail from Drive video if no custom thumbnail provided
+            const finalThumbnail = thumbnailUrl || (driveVideoId ? getDriveThumbnail(driveVideoId) : "https://picsum.photos/800/450?grayscale");
+
             const newProject = {
                 id: generateId(type === "longForm" ? "lf" : "sf"),
                 title,
                 category: category || "Uncategorized",
                 year: year || new Date().getFullYear().toString(),
-                thumbnailUrl: thumbnailUrl || "https://picsum.photos/800/450?grayscale",
-                driveVideoId: extractDriveVideoId(driveVideoLink || "")
+                thumbnailUrl: finalThumbnail,
+                driveVideoId
             };
 
             if (type === "longForm") {
@@ -116,10 +126,16 @@ export default async (req: Request, context: Context) => {
             for (const type of ["longForm", "shortForm"] as const) {
                 const index = projects[type].findIndex((p: any) => p.id === projectId);
                 if (index !== -1) {
+                    const driveVideoId = extractDriveVideoId(body.driveVideoLink || body.driveVideoId || "");
+                    // Auto-generate thumbnail from Drive video if updating video and no custom thumbnail
+                    const existingThumbnail = projects[type][index].thumbnailUrl;
+                    const newThumbnail = body.thumbnailUrl || (driveVideoId && driveVideoId !== projects[type][index].driveVideoId ? getDriveThumbnail(driveVideoId) : existingThumbnail);
+
                     projects[type][index] = {
                         ...projects[type][index],
                         ...body,
-                        driveVideoId: extractDriveVideoId(body.driveVideoLink || body.driveVideoId || "")
+                        thumbnailUrl: newThumbnail,
+                        driveVideoId
                     };
                     found = true;
                     break;
