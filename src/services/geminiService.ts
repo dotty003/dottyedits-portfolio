@@ -1,8 +1,19 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { CreativeBriefResponse } from "../types";
 
-const apiKey = process.env.API_KEY || '';
-const ai = new GoogleGenAI({ apiKey });
+// Lazy initialization to avoid crashing if API key is not set
+let ai: GoogleGenAI | null = null;
+
+function getAI(): GoogleGenAI {
+  if (!ai) {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+    if (!apiKey) {
+      throw new Error("Gemini API key not configured. Please set VITE_GEMINI_API_KEY environment variable.");
+    }
+    ai = new GoogleGenAI({ apiKey });
+  }
+  return ai;
+}
 
 export const generateCreativeBrief = async (
   clientName: string,
@@ -10,8 +21,9 @@ export const generateCreativeBrief = async (
   description: string
 ): Promise<CreativeBriefResponse> => {
   try {
-    const model = 'gemini-3-flash-preview';
-    
+    const genai = getAI();
+    const model = 'gemini-2.0-flash';
+
     const prompt = `
       You are an expert video production consultant assisting a professional video editor. 
       A potential client named "${clientName}" is inquiring about a "${projectType}" project.
@@ -26,7 +38,7 @@ export const generateCreativeBrief = async (
       4. Potential technical requirements (e.g., "Drone footage", "Motion Graphics", "Color Grading").
     `;
 
-    const response = await ai.models.generateContent({
+    const response = await genai.models.generateContent({
       model,
       contents: prompt,
       config: {
@@ -35,16 +47,16 @@ export const generateCreativeBrief = async (
           type: Type.OBJECT,
           properties: {
             summary: { type: Type.STRING, description: "A professional summary of the project vision." },
-            moodBoardSuggestions: { 
-              type: Type.ARRAY, 
+            moodBoardSuggestions: {
+              type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: "List of visual style keywords." 
+              description: "List of visual style keywords."
             },
             estimatedTimeline: { type: Type.STRING, description: "Estimated duration of the project." },
-            technicalRequirements: { 
-              type: Type.ARRAY, 
+            technicalRequirements: {
+              type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: "List of technical needs." 
+              description: "List of technical needs."
             }
           },
           required: ["summary", "moodBoardSuggestions", "estimatedTimeline", "technicalRequirements"]
