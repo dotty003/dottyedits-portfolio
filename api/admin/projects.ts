@@ -56,11 +56,17 @@ async function readProjects(): Promise<ProjectsData> {
 }
 
 async function writeProjects(data: ProjectsData): Promise<void> {
-    await put(PROJECTS_BLOB_KEY, JSON.stringify(data), {
-        access: 'public',
-        addRandomSuffix: false
-    });
+    try {
+        await put(PROJECTS_BLOB_KEY, JSON.stringify(data), {
+            access: 'public',
+            addRandomSuffix: false
+        });
+    } catch (error: any) {
+        console.error('Blob write error:', error);
+        throw new Error(`Failed to write to blob storage: ${error.message || 'Unknown error'}`);
+    }
 }
+
 
 function generateId(prefix: string): string {
     return `${prefix}-${Date.now().toString(36)}`;
@@ -230,8 +236,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             default:
                 return res.status(405).json({ error: 'Method not allowed' });
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error('Admin projects error:', error);
-        return res.status(500).json({ error: 'Internal server error' });
+        return res.status(500).json({ error: error.message || 'Internal server error' });
     }
 }
