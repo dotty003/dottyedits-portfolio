@@ -103,19 +103,12 @@
         </div>
 
         <div>
-          <label class="block text-sm text-neutral-400 mb-2">Thumbnail URL</label>
-          <input type="url" id="project-thumbnail"
-            class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors"
-            placeholder="https://...">
-        </div>
-
-        <div>
           <label class="block text-sm text-neutral-400 mb-2">Google Drive Video Link</label>
-          <input type="url" id="project-drive-link"
+          <input type="url" id="project-drive-link" required
             class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors"
             placeholder="https://drive.google.com/file/d/...">
-          <p class="text-xs text-neutral-500 mt-1">Paste the full Drive sharing link. Must be set to "Anyone with the
-            link".</p>
+          <p class="text-xs text-neutral-500 mt-1">Paste the full Drive sharing link. Thumbnail will be extracted
+            automatically.</p>
         </div>
 
         <div class="flex gap-3 pt-4">
@@ -237,7 +230,6 @@
       document.getElementById('project-title').value = project?.title || '';
       document.getElementById('project-category').value = project?.category || '';
       document.getElementById('project-year').value = project?.year || new Date().getFullYear();
-      document.getElementById('project-thumbnail').value = project?.thumbnailUrl || '';
       document.getElementById('project-drive-link').value = project?.driveVideoId ?
         `https://drive.google.com/file/d/${project.driveVideoId}/view` : '';
     }
@@ -289,7 +281,6 @@
         title: document.getElementById('project-title').value,
         category: document.getElementById('project-category').value,
         year: document.getElementById('project-year').value,
-        thumbnailUrl: document.getElementById('project-thumbnail').value,
         driveVideoLink: driveLink
       };
 
