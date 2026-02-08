@@ -6,16 +6,16 @@ import { ArrowUpRight, PlayCircle, Smartphone, X } from 'lucide-react';
 // Fallback data - embedded directly for production reliability
 const fallbackData = {
   longForm: [
-    { id: "lf-001", title: "Neon Nights", category: "Music Video", year: "2024", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=1", driveVideoId: "" },
-    { id: "lf-002", title: "The Artisan", category: "Documentary", year: "2023", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=3", driveVideoId: "" },
-    { id: "lf-003", title: "Apex Performance", category: "Brand Film", year: "2024", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=4", driveVideoId: "" },
-    { id: "lf-004", title: "Echoes of Silence", category: "Short Film", year: "2022", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=5", driveVideoId: "" }
+    { id: "lf-001", title: "Neon Nights", category: "Music Video", year: "2024", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=1" },
+    { id: "lf-002", title: "The Artisan", category: "Documentary", year: "2023", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=3" },
+    { id: "lf-003", title: "Apex Performance", category: "Brand Film", year: "2024", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=4" },
+    { id: "lf-004", title: "Echoes of Silence", category: "Short Film", year: "2022", thumbnailUrl: "https://picsum.photos/800/450?grayscale&random=5" }
   ],
   shortForm: [
-    { id: "sf-001", title: "Urban Flow", category: "Social Ad", year: "2023", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=2", driveVideoId: "" },
-    { id: "sf-002", title: "Vogue X", category: "Fashion Reel", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=6", driveVideoId: "" },
-    { id: "sf-003", title: "Glitch Mode", category: "TikTok Edit", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=7", driveVideoId: "" },
-    { id: "sf-004", title: "Hype Drop", category: "Teaser", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=8", driveVideoId: "" }
+    { id: "sf-001", title: "Urban Flow", category: "Social Ad", year: "2023", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=2" },
+    { id: "sf-002", title: "Vogue X", category: "Fashion Reel", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=6" },
+    { id: "sf-003", title: "Glitch Mode", category: "TikTok Edit", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=7" },
+    { id: "sf-004", title: "Hype Drop", category: "Teaser", year: "2024", thumbnailUrl: "https://picsum.photos/450/800?grayscale&random=8" }
   ]
 };
 
@@ -24,6 +24,37 @@ interface ProjectsData {
   shortForm: Project[];
 }
 
+// Helper to get video ID (supports both new and legacy fields)
+const getVideoId = (project: Project): string | undefined => {
+  return project.videoId || project.driveVideoId;
+};
+
+// Helper to get video source (infer from legacy driveVideoId if needed)
+const getVideoSource = (project: Project): 'youtube' | 'drive' | null => {
+  if (project.videoSource) return project.videoSource;
+  if (project.driveVideoId) return 'drive';
+  return null;
+};
+
+// Helper to check if project has a video
+const hasVideo = (project: Project): boolean => {
+  return Boolean(getVideoId(project));
+};
+
+// Helper to get embed URL based on video source
+const getEmbedUrl = (project: Project): string => {
+  const videoId = getVideoId(project);
+  const source = getVideoSource(project);
+
+  if (!videoId) return '';
+
+  if (source === 'youtube') {
+    return `https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`;
+  } else {
+    return `https://drive.google.com/file/d/${videoId}/preview`;
+  }
+};
+
 export const Portfolio: React.FC = () => {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectsData>(fallbackData);
@@ -31,14 +62,12 @@ export const Portfolio: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
   useEffect(() => {
-    // Try to fetch from API, but use fallback data if it fails
     fetch('/api/projects')
       .then(res => {
         if (!res.ok) throw new Error('API not available');
         return res.json();
       })
       .then(data => {
-        // Validate that we got actual JSON data
         if (data && data.longForm && data.shortForm) {
           setProjects(data);
         }
@@ -46,13 +75,12 @@ export const Portfolio: React.FC = () => {
       })
       .catch(err => {
         console.warn('Using fallback data - API not available:', err.message);
-        // Already have fallback data set as initial state
         setLoading(false);
       });
   }, []);
 
   const openVideoModal = (project: Project) => {
-    if (project.driveVideoId) {
+    if (hasVideo(project)) {
       setSelectedProject(project);
     }
   };
@@ -79,22 +107,20 @@ export const Portfolio: React.FC = () => {
             }`}
         />
 
-        {/* Gradient Overlay */}
         <div
           className={`absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent transition-opacity duration-500 ${hoveredId === project.id ? 'opacity-100' : 'opacity-0'
             }`}
         />
 
-        {/* Center Icon */}
         <div className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ${hoveredId === project.id ? 'opacity-100 scale-100' : 'opacity-0 scale-50'
           }`}>
           {isVertical ? <Smartphone className="w-12 h-12 text-white/80 drop-shadow-lg" strokeWidth={1} /> : <PlayCircle className="w-16 h-16 text-white/80 drop-shadow-lg" strokeWidth={1} />}
         </div>
 
         {/* Video indicator */}
-        {project.driveVideoId && (
-          <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-sm px-2 py-1 rounded text-xs text-white">
-            ▶ Video
+        {hasVideo(project) && (
+          <div className="absolute top-3 right-3 bg-white/20 backdrop-blur-sm px-2 py-1 rounded text-xs text-white flex items-center gap-1">
+            {getVideoSource(project) === 'youtube' ? '▶ YouTube' : '▶ Video'}
           </div>
         )}
       </div>
@@ -121,7 +147,6 @@ export const Portfolio: React.FC = () => {
   return (
     <>
       <section id="work" className="py-24 bg-black border-t border-neutral-900 relative">
-        {/* Subtle grid background for the section */}
         <div className="absolute inset-0 bg-dot-grid-fade bg-grid-sm pointer-events-none opacity-50"></div>
 
         <div className="container mx-auto px-6 relative z-10">
@@ -167,7 +192,6 @@ export const Portfolio: React.FC = () => {
             className="relative w-full max-w-5xl mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close button */}
             <button
               onClick={closeVideoModal}
               className="absolute -top-12 right-0 text-white/70 hover:text-white transition-colors"
@@ -175,17 +199,15 @@ export const Portfolio: React.FC = () => {
               <X className="w-8 h-8" />
             </button>
 
-            {/* Video container */}
             <div className="aspect-video w-full bg-neutral-900 rounded-lg overflow-hidden">
               <iframe
-                src={`https://drive.google.com/file/d/${selectedProject.driveVideoId}/preview`}
+                src={getEmbedUrl(selectedProject)}
                 className="w-full h-full"
-                allow="autoplay; encrypted-media"
+                allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
               />
             </div>
 
-            {/* Video info */}
             <div className="mt-4 text-center">
               <h3 className="text-xl font-bold text-white">{selectedProject.title}</h3>
               <p className="text-sm text-neutral-400">{selectedProject.category} — {selectedProject.year}</p>

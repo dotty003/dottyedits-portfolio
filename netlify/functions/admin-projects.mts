@@ -15,20 +15,21 @@ function generateId(prefix: string): string {
     return `${prefix}-${Date.now().toString(36)}`;
 }
 
-// Extract Google Drive video ID from various link formats
-function extractDriveVideoId(link: string): string {
+// Detect video source from URL
+function detectVideoSource(link: string): 'youtube' | 'drive' | null {
+    if (!link) return null;
+    if (link.includes('youtube.com') || link.includes('youtu.be')) return 'youtube';
+    if (link.includes('drive.google.com')) return 'drive';
+    return null;
+}
+
+// Extract YouTube video ID from various link formats
+function extractYoutubeVideoId(link: string): string {
     if (!link) return "";
 
-    // Already just an ID
-    if (!link.includes("/") && !link.includes("?")) {
-        return link;
-    }
-
-    // Full Google Drive link patterns
     const patterns = [
-        /\/file\/d\/([a-zA-Z0-9_-]+)/,  // /file/d/ID/
-        /id=([a-zA-Z0-9_-]+)/,          // ?id=ID
-        /\/d\/([a-zA-Z0-9_-]+)/         // /d/ID
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+        /^([a-zA-Z0-9_-]{11})$/  // Just the ID
     ];
 
     for (const pattern of patterns) {
@@ -36,13 +37,52 @@ function extractDriveVideoId(link: string): string {
         if (match) return match[1];
     }
 
-    return link; // Return as-is if no pattern matches
+    return "";
 }
 
-// Generate Google Drive thumbnail URL from video ID
-function getDriveThumbnail(videoId: string): string {
-    if (!videoId) return "";
+// Extract Google Drive video ID from various link formats
+function extractDriveVideoId(link: string): string {
+    if (!link) return "";
+
+    if (!link.includes("/") && !link.includes("?")) {
+        return link;
+    }
+
+    const patterns = [
+        /\/file\/d\/([a-zA-Z0-9_-]+)/,
+        /id=([a-zA-Z0-9_-]+)/,
+        /\/d\/([a-zA-Z0-9_-]+)/
+    ];
+
+    for (const pattern of patterns) {
+        const match = link.match(pattern);
+        if (match) return match[1];
+    }
+
+    return link;
+}
+
+// Generate thumbnail URL based on video source
+function getThumbnail(videoId: string, source: 'youtube' | 'drive' | null): string {
+    if (!videoId || !source) return "";
+    if (source === 'youtube') {
+        return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+    }
     return `https://drive.google.com/thumbnail?id=${videoId}&sz=w800`;
+}
+
+// Parse video link and return video info
+function parseVideoLink(link: string): { videoId: string; videoSource: 'youtube' | 'drive' | null } {
+    const source = detectVideoSource(link);
+    let videoId = "";
+
+    if (source === 'youtube') {
+        videoId = extractYoutubeVideoId(link);
+    } else if (source === 'drive') {
+        videoId = extractDriveVideoId(link);
+    }
+
+    return { videoId, videoSource: source };
 }
 
 export default async (req: Request, context: Context) => {
@@ -71,7 +111,9 @@ export default async (req: Request, context: Context) => {
         // POST - create new project
         if (req.method === "POST") {
             const body = await req.json();
-            const { type, title, category, year, thumbnailUrl, driveVideoLink } = body;
+            const { type, title, category, year, thumbnailUrl, videoLink } = body;
+            // Support legacy driveVideoLink field
+            const linkToUse = videoLink || body.driveVideoLink || "";
 
             if (!type || !title) {
                 return new Response(JSON.stringify({ error: "Missing required fields" }), {
@@ -82,9 +124,8 @@ export default async (req: Request, context: Context) => {
 
             let projects = await store.get("projects", { type: "json" }) || { longForm: [], shortForm: [] };
 
-            const driveVideoId = extractDriveVideoId(driveVideoLink || "");
-            // Auto-generate thumbnail from Drive video if no custom thumbnail provided
-            const finalThumbnail = thumbnailUrl || (driveVideoId ? getDriveThumbnail(driveVideoId) : "https://picsum.photos/800/450?grayscale");
+            const { videoId, videoSource } = parseVideoLink(linkToUse);
+            const finalThumbnail = thumbnailUrl || (videoId ? getThumbnail(videoId, videoSource) : "https://picsum.photos/800/450?grayscale");
 
             const newProject = {
                 id: generateId(type === "longForm" ? "lf" : "sf"),
@@ -92,7 +133,10 @@ export default async (req: Request, context: Context) => {
                 category: category || "Uncategorized",
                 year: year || new Date().getFullYear().toString(),
                 thumbnailUrl: finalThumbnail,
-                driveVideoId
+                videoId,
+                videoSource,
+                // Keep driveVideoId for backwards compatibility
+                driveVideoId: videoSource === 'drive' ? videoId : undefined
             };
 
             if (type === "longForm") {
@@ -119,23 +163,25 @@ export default async (req: Request, context: Context) => {
             }
 
             const body = await req.json();
+            const linkToUse = body.videoLink || body.driveVideoLink || "";
             let projects = await store.get("projects", { type: "json" }) || { longForm: [], shortForm: [] };
 
-            // Find and update the project in either array
             let found = false;
             for (const type of ["longForm", "shortForm"] as const) {
                 const index = projects[type].findIndex((p: any) => p.id === projectId);
                 if (index !== -1) {
-                    const driveVideoId = extractDriveVideoId(body.driveVideoLink || body.driveVideoId || "");
-                    // Auto-generate thumbnail from Drive video if updating video and no custom thumbnail
+                    const { videoId, videoSource } = parseVideoLink(linkToUse);
                     const existingThumbnail = projects[type][index].thumbnailUrl;
-                    const newThumbnail = body.thumbnailUrl || (driveVideoId && driveVideoId !== projects[type][index].driveVideoId ? getDriveThumbnail(driveVideoId) : existingThumbnail);
+                    const existingVideoId = projects[type][index].videoId || projects[type][index].driveVideoId;
+                    const newThumbnail = body.thumbnailUrl || (videoId && videoId !== existingVideoId ? getThumbnail(videoId, videoSource) : existingThumbnail);
 
                     projects[type][index] = {
                         ...projects[type][index],
                         ...body,
                         thumbnailUrl: newThumbnail,
-                        driveVideoId
+                        videoId,
+                        videoSource,
+                        driveVideoId: videoSource === 'drive' ? videoId : projects[type][index].driveVideoId
                     };
                     found = true;
                     break;

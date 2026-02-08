@@ -260,10 +260,10 @@
           </div>
         </div>
         <div>
-          <label class="block text-sm text-neutral-400 mb-2">Google Drive Video Link</label>
-          <input type="url" id="project-drive-link" required
+          <label class="block text-sm text-neutral-400 mb-2">Video Link (YouTube or Google Drive)</label>
+          <input type="url" id="project-video-link" required
             class="w-full px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white transition-colors"
-            placeholder="https://drive.google.com/file/d/...">
+            placeholder="https://youtube.com/watch?v=... or https://drive.google.com/file/d/...">
           <p class="text-xs text-neutral-500 mt-1">Thumbnail extracted automatically from video.</p>
         </div>
         <div class="flex gap-3 pt-4">
@@ -507,7 +507,17 @@
       document.getElementById('project-title').value = project?.title || '';
       document.getElementById('project-category').value = project?.category || '';
       document.getElementById('project-year').value = project?.year || new Date().getFullYear();
-      document.getElementById('project-drive-link').value = project?.driveVideoId ? `https://drive.google.com/file/d/${project.driveVideoId}/view` : '';
+      // Populate video link field (handle both YouTube and Drive)
+      let videoLinkValue = '';
+      if (project) {
+        if (project.videoSource === 'youtube' && project.videoId) {
+          videoLinkValue = `https://youtube.com/watch?v=${project.videoId}`;
+        } else if (project.videoId || project.driveVideoId) {
+          const id = project.videoId || project.driveVideoId;
+          videoLinkValue = `https://drive.google.com/file/d/${id}/view`;
+        }
+      }
+      document.getElementById('project-video-link').value = videoLinkValue;
     }
 
     function closeProjectModal() {
@@ -538,7 +548,7 @@
         title: document.getElementById('project-title').value,
         category: document.getElementById('project-category').value,
         year: document.getElementById('project-year').value,
-        driveVideoLink: document.getElementById('project-drive-link').value
+        videoLink: document.getElementById('project-video-link').value
       };
       try {
         const url = id ? `/api/admin/projects?id=${id}` : '/api/admin/projects';

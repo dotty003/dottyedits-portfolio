@@ -3,7 +3,9 @@ export interface Project {
   title: string;
   category: string;
   thumbnailUrl: string;
-  driveVideoId: string;
+  driveVideoId?: string;  // Legacy field for backwards compatibility
+  videoId?: string;       // New unified video ID (YouTube or Drive)
+  videoSource?: 'youtube' | 'drive' | null;  // Video source type
   year: string;
 }
 
