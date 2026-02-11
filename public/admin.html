@@ -156,21 +156,6 @@
             <input type="number" id="about-years"
               class="w-32 px-4 py-3 bg-neutral-800 border border-neutral-700 rounded-lg text-white focus:outline-none focus:border-white">
           </div>
-          <div>
-            <label class="block text-sm text-neutral-400 mb-2">Profile Photo</label>
-            <div class="flex items-center gap-4">
-              <img id="about-photo-preview" src="/DOTTY.jpeg" alt="Preview"
-                class="w-24 h-24 object-cover rounded-lg border border-neutral-700">
-              <div class="flex-1">
-                <input type="file" id="about-photo-input" accept="image/*" class="hidden">
-                <button type="button" id="about-photo-btn"
-                  class="px-4 py-2 bg-neutral-700 text-white rounded-lg hover:bg-neutral-600 transition-colors">
-                  Choose Photo
-                </button>
-                <p id="about-photo-status" class="text-xs text-neutral-500 mt-2">Select an image to upload</p>
-              </div>
-            </div>
-          </div>
           <button type="submit"
             class="px-6 py-3 bg-white text-black font-bold rounded-lg hover:bg-neutral-200 transition-colors">Save
             Changes</button>
@@ -374,10 +359,7 @@
       document.getElementById('about-bio2').value = siteContent.about?.paragraphs?.[1] || '';
       document.getElementById('about-tools').value = (siteContent.about?.tools || []).join(', ');
       document.getElementById('about-years').value = siteContent.about?.yearsExperience || '';
-      if (siteContent.about?.photoUrl) {
-        document.getElementById('about-photo-preview').src = siteContent.about.photoUrl;
-        document.getElementById('about-photo-status').textContent = 'Current photo loaded';
-      }
+
       // Services
       renderServices();
       // Clients
@@ -482,63 +464,17 @@
       });
     });
 
-    // Photo upload handling
-    let aboutPhotoUrl = '';
-
-    document.getElementById('about-photo-btn').addEventListener('click', () => {
-      document.getElementById('about-photo-input').click();
-    });
-
-    document.getElementById('about-photo-input').addEventListener('change', async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      // Preview
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        document.getElementById('about-photo-preview').src = ev.target.result;
-      };
-      reader.readAsDataURL(file);
-
-      // Upload
-      document.getElementById('about-photo-status').textContent = 'Uploading...';
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const res = await fetch('/api/admin/upload', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${authToken}` },
-          body: formData
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          aboutPhotoUrl = data.url;
-          document.getElementById('about-photo-status').textContent = 'Photo uploaded! Click Save to apply.';
-        } else {
-          const err = await res.json();
-          document.getElementById('about-photo-status').textContent = 'Upload failed: ' + (err.error || 'Unknown error');
-        }
-      } catch (err) {
-        console.error('Upload error:', err);
-        document.getElementById('about-photo-status').textContent = 'Upload failed';
-      }
-    });
-
     document.getElementById('about-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const aboutData = {
-        headline: document.getElementById('about-headline').value,
-        subtitle: document.getElementById('about-subtitle').value,
-        paragraphs: [document.getElementById('about-bio1').value, document.getElementById('about-bio2').value],
-        tools: document.getElementById('about-tools').value.split(',').map(t => t.trim()).filter(Boolean),
-        yearsExperience: parseInt(document.getElementById('about-years').value) || 0
-      };
-      if (aboutPhotoUrl) {
-        aboutData.photoUrl = aboutPhotoUrl;
-      }
-      await saveSiteContent({ about: aboutData });
+      await saveSiteContent({
+        about: {
+          headline: document.getElementById('about-headline').value,
+          subtitle: document.getElementById('about-subtitle').value,
+          paragraphs: [document.getElementById('about-bio1').value, document.getElementById('about-bio2').value],
+          tools: document.getElementById('about-tools').value.split(',').map(t => t.trim()).filter(Boolean),
+          yearsExperience: parseInt(document.getElementById('about-years').value) || 0
+        }
+      });
     });
 
     document.getElementById('clients-form').addEventListener('submit', async (e) => {
